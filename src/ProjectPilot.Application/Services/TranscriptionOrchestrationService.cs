@@ -9,16 +9,18 @@ public class TranscriptionOrchestrationService : ITranscriptionService
 {
     private readonly ISpeechToTextService _speechToTextService;
     private readonly IOpenAIService _openAIService;
+    private readonly IRepository<MeetingTranscription> _transcriptionRepository;
     private readonly ILogger<TranscriptionOrchestrationService> _logger;
-    private readonly Dictionary<string, MeetingTranscription> _transcriptionStore = new();
 
     public TranscriptionOrchestrationService(
         ISpeechToTextService speechToTextService,
         IOpenAIService openAIService,
+        IRepository<MeetingTranscription> transcriptionRepository,
         ILogger<TranscriptionOrchestrationService> logger)
     {
         _speechToTextService = speechToTextService;
         _openAIService = openAIService;
+        _transcriptionRepository = transcriptionRepository;
         _logger = logger;
     }
 
@@ -36,8 +38,8 @@ public class TranscriptionOrchestrationService : ITranscriptionService
                 Status = TranscriptionStatus.InProgress
             };
 
-            // Store the transcription record
-            _transcriptionStore[transcription.Id] = transcription;
+            // Save to repository
+            transcription = await _transcriptionRepository.AddAsync(transcription, cancellationToken);
 
             // Process in background (in a real implementation, this would be queued)
             _ = ProcessTranscriptionAsync(transcription, audioStream, cancellationToken);
@@ -54,40 +56,63 @@ public class TranscriptionOrchestrationService : ITranscriptionService
 
     public async Task<MeetingTranscription> GetTranscriptionAsync(string id, CancellationToken cancellationToken = default)
     {
-        if (!_transcriptionStore.TryGetValue(id, out var transcription))
+        try
+        {
+            return await _transcriptionRepository.GetByIdAsync(id, cancellationToken);
+        }
+        catch (KeyNotFoundException)
         {
             throw new KeyNotFoundException($"Transcription with ID {id} not found");
         }
-
-        return transcription;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving transcription {TranscriptionId}", id);
+            throw;
+        }
     }
 
     public async Task<List<MeetingTranscription>> GetTranscriptionsAsync(int skip = 0, int take = 20, CancellationToken cancellationToken = default)
     {
-        return _transcriptionStore.Values
-            .OrderByDescending(t => t.CreatedAt)
-            .Skip(skip)
-            .Take(take)
-            .ToList();
+        try
+        {
+            return await _transcriptionRepository.GetAllAsync(skip, take, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving transcriptions");
+            throw;
+        }
     }
 
     public async Task<MeetingTranscription> UpdateTranscriptionAsync(MeetingTranscription transcription, CancellationToken cancellationToken = default)
     {
-        if (!_transcriptionStore.ContainsKey(transcription.Id))
+        try
         {
-            throw new KeyNotFoundException($"Transcription with ID {transcription.Id} not found");
+            transcription.UpdatedAt = DateTime.UtcNow;
+            return await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
         }
-
-        transcription.UpdatedAt = DateTime.UtcNow;
-        _transcriptionStore[transcription.Id] = transcription;
-        return transcription;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating transcription {TranscriptionId}", transcription.Id);
+            throw;
+        }
     }
 
     public async Task DeleteTranscriptionAsync(string id, CancellationToken cancellationToken = default)
     {
-        if (!_transcriptionStore.Remove(id))
+        try
+        {
+            await _transcriptionRepository.DeleteAsync(id, cancellationToken);
+            _logger.LogInformation("Transcription deleted: {TranscriptionId}", id);
+        }
+        catch (KeyNotFoundException)
         {
             throw new KeyNotFoundException($"Transcription with ID {id} not found");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting transcription {TranscriptionId}", id);
+            throw;
         }
     }
 
@@ -98,24 +123,29 @@ public class TranscriptionOrchestrationService : ITranscriptionService
             // Update status
             transcription.Status = TranscriptionStatus.Transcribing;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             // Perform speech-to-text
             var transcriptionText = await _speechToTextService.TranscribeAudioAsync(audioStream, transcription.AudioFileName, cancellationToken);
             transcription.TranscriptionText = transcriptionText;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             // Update status
             transcription.Status = TranscriptionStatus.Summarizing;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             // Generate summary
             var summary = await _openAIService.SummarizeMeetingAsync(transcriptionText, cancellationToken);
             transcription.Summary = summary;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             // Update status
             transcription.Status = TranscriptionStatus.ExtractingTasks;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             // Extract tasks
             var tasks = await _openAIService.ExtractTasksAsync(transcriptionText, summary, cancellationToken);
@@ -125,6 +155,7 @@ public class TranscriptionOrchestrationService : ITranscriptionService
             transcription.Status = TranscriptionStatus.Completed;
             transcription.EndTime = DateTime.UtcNow;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
 
             _logger.LogInformation("Transcription completed successfully for ID: {TranscriptionId}", transcription.Id);
         }
@@ -133,6 +164,7 @@ public class TranscriptionOrchestrationService : ITranscriptionService
             _logger.LogError(ex, "Error processing transcription for ID: {TranscriptionId}", transcription.Id);
             transcription.Status = TranscriptionStatus.Failed;
             transcription.UpdatedAt = DateTime.UtcNow;
+            await _transcriptionRepository.UpdateAsync(transcription, cancellationToken);
         }
     }
 }

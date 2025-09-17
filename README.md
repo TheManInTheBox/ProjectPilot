@@ -74,6 +74,13 @@ ProjectPilot follows clean architecture principles with the following layers:
   "GitHub": {
     "DefaultToken": "YOUR_GITHUB_TOKEN",
     "UserAgent": "ProjectPilot/1.0"
+  },
+  "CosmosDb": {
+    "Endpoint": "https://your-cosmosdb-account.documents.azure.com:443/",
+    "Key": "your-cosmosdb-key",
+    "DatabaseName": "ProjectPilot",
+    "TranscriptionsContainerName": "Transcriptions",
+    "TasksContainerName": "Tasks"
   }
 }
 ```
@@ -95,6 +102,14 @@ Access the API documentation at: `https://localhost:7xxx/swagger`
 cd src/ProjectPilot.Functions
 func start
 ```
+
+#### Dashboard
+```bash
+cd src/ProjectPilot.WebUI
+dotnet run
+```
+
+Access the dashboard at: `https://localhost:5000`
 
 ### API Endpoints
 
@@ -206,3 +221,35 @@ For issues and questions:
 - Create an issue in the GitHub repository
 - Check the logs in Azure Application Insights
 - Review the health check endpoints
+
+## Dashboard
+
+The solution includes a Blazor WebAssembly dashboard for managing transcriptions and GitHub synchronization:
+
+### Features
+
+- **Audio Upload**: Upload meeting audio files for processing
+- **Transcription Management**: View and manage transcription status
+- **Task Review**: Review AI-extracted tasks before GitHub sync
+- **GitHub Integration**: Configure and sync tasks to GitHub issues
+- **Real-time Updates**: Live status updates for processing jobs
+
+### Running the Dashboard
+
+```bash
+cd src/ProjectPilot.WebUI
+dotnet run
+```
+
+Access the dashboard at: `https://localhost:5000`
+
+### Dashboard Configuration
+
+Update the API endpoint in `Program.cs` to match your Web API URL:
+
+```csharp
+builder.Services.AddScoped(sp => new HttpClient
+{
+    BaseAddress = new Uri("https://your-webapi-url") // Update this
+});
+```

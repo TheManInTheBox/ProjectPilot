@@ -20,3 +20,12 @@ public class GitHubOptions
     public string DefaultToken { get; set; } = string.Empty;
     public string UserAgent { get; set; } = "ProjectPilot/1.0";
 }
+
+public class CosmosDbOptions
+{
+    public string Endpoint { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public string DatabaseName { get; set; } = "ProjectPilot";
+    public string TranscriptionsContainerName { get; set; } = "Transcriptions";
+    public string TasksContainerName { get; set; } = "Tasks";
+}
