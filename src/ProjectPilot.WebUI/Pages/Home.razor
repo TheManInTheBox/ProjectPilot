@@ -1,0 +1,386 @@
+﻿@page "/"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<PageTitle>ProjectPilot Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-robot"></i>
+                ProjectPilot Dashboard
+            </h1>
+            <p class="lead">AI-powered GitHub Project Manager</p>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-upload"></i>
+                        Upload Meeting Audio
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="audioFile" class="form-label">Select Audio File</label>
+                        <input type="file" class="form-control" id="audioFile" @ref="audioFileInput"
+                               accept="audio/*" @onchange="OnFileSelected" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="meetingTitle" class="form-label">Meeting Title (Optional)</label>
+                        <input type="text" class="form-control" id="meetingTitle"
+                               @bind="meetingTitle" placeholder="Enter meeting title..." />
+                    </div>
+                    <button type="button" class="btn btn-primary" @onclick="UploadAudio" disabled="@isUploading">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <text>Processing...</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cloud-upload"></i>
+                            <text>Upload &amp; Process</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transcriptions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i>
+                        Recent Transcriptions
+                    </h5>
+                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadTranscriptions">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (transcriptions == null)
+                    {
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!transcriptions.Any())
+                    {
+                        <p class="text-muted text-center">No transcriptions found. Upload an audio file to get started.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Tasks</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var transcription in transcriptions)
+                                    {
+                                        <tr>
+                                            <td>@transcription.Title</td>
+                                            <td>
+                                                <span class="badge bg-@GetStatusColor(transcription.Status)">
+                                                    @transcription.Status
+                                                </span>
+                                            </td>
+                                            <td>@transcription.CreatedAt.ToString("g")</td>
+                                            <td>@transcription.ExtractedTasks.Count</td>
+                                            <td>
+                                                <button type="button" class="btn btn-outline-info btn-sm me-2"
+                                                        @onclick="() => ViewTranscription(transcription.Id)">
+                                                    <i class="bi bi-eye"></i>
+                                                    View
+                                                </button>
+                                                @if (transcription.Status == "Completed" && transcription.ExtractedTasks.Any())
+                                                {
+                                                    <button type="button" class="btn btn-outline-success btn-sm"
+                                                            @onclick="() => SyncToGitHub(transcription)">
+                                                        <i class="bi bi-github"></i>
+                                                        <text>Sync to GitHub</text>
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Configuration -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i>
+                        GitHub Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="githubOwner" class="form-label">Repository Owner</label>
+                                <input type="text" class="form-control" id="githubOwner"
+                                       @bind="githubConfig.Owner" placeholder="e.g., your-username" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="githubRepo" class="form-label">Repository Name</label>
+                                <input type="text" class="form-control" id="githubRepo"
+                                       @bind="githubConfig.Repository" placeholder="e.g., my-project" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="githubToken" class="form-label">GitHub Token</label>
+                        <input type="password" class="form-control" id="githubToken"
+                               @bind="githubConfig.Token" placeholder="ghp_..." />
+                        <div class="form-text">
+                            Token needs repo permissions. Get one from <a href="https://github.com/settings/tokens" target="_blank">GitHub Settings</a>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ValidateGitHubConfig">
+                        <i class="bi bi-check-circle"></i>
+                        Validate Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ElementReference audioFileInput;
+    private string meetingTitle = "";
+    private bool isUploading = false;
+    private List<TranscriptionResponseDto>? transcriptions;
+    private GitHubConfig githubConfig = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTranscriptions();
+    }
+
+    private async Task OnFileSelected()
+    {
+        // File selection handled in UploadAudio method
+    }
+
+    private async Task UploadAudio()
+    {
+        try
+        {
+            isUploading = true;
+            await InvokeAsync(StateHasChanged);
+
+            // Get the selected file
+            var file = await JSRuntime.InvokeAsync<IJSObjectReference>("getFileFromInput", audioFileInput);
+
+            if (file == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select an audio file first.");
+                return;
+            }
+
+            // Create form data
+            using var content = new MultipartFormDataContent();
+            // Note: In a real implementation, you'd need to handle file upload properly
+            // This is a simplified version
+
+            var response = await Http.PostAsync($"/api/transcriptions/upload?title={Uri.EscapeDataString(meetingTitle)}", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Audio uploaded successfully! Processing will begin shortly.");
+                await LoadTranscriptions();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Upload failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error uploading file: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadTranscriptions()
+    {
+        try
+        {
+            transcriptions = await Http.GetFromJsonAsync<List<TranscriptionResponseDto>>("/api/transcriptions");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading transcriptions: {ex.Message}");
+        }
+    }
+
+    private async Task ViewTranscription(string id)
+    {
+        // Navigate to transcription details (would need to implement this page)
+        await JSRuntime.InvokeVoidAsync("alert", $"View transcription details for ID: {id}");
+    }
+
+    private async Task SyncToGitHub(TranscriptionResponseDto transcription)
+    {
+        try
+        {
+            var syncRequest = new
+            {
+                Owner = githubConfig.Owner,
+                Repository = githubConfig.Repository,
+                Token = githubConfig.Token,
+                TaskIds = transcription.ExtractedTasks.Select(t => t.Id).ToArray()
+            };
+
+            var response = await Http.PostAsJsonAsync("/api/github/sync", syncRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<GitHubSyncResponseDto>();
+                await JSRuntime.InvokeVoidAsync("alert", $"Successfully synced {result.CreatedIssues.Count} tasks to GitHub!");
+                await LoadTranscriptions();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Sync failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error syncing to GitHub: {ex.Message}");
+        }
+    }
+
+    private async Task ValidateGitHubConfig()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/github/validate-repository", new
+            {
+                Owner = githubConfig.Owner,
+                Name = githubConfig.Repository,
+                Token = githubConfig.Token
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "GitHub configuration is valid!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "GitHub configuration validation failed. Please check your settings.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error validating GitHub config: {ex.Message}");
+        }
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "completed" => "success",
+            "failed" => "danger",
+            "inprogress" => "warning",
+            _ => "secondary"
+        };
+    }
+
+    public class GitHubConfig
+    {
+        public string Owner { get; set; } = "";
+        public string Repository { get; set; } = "";
+        public string Token { get; set; } = "";
+    }
+
+    // DTOs (simplified versions for the frontend)
+    public class TranscriptionResponseDto
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string TranscriptionText { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string Summary { get; set; } = "";
+        public List<TaskItemDto> ExtractedTasks { get; set; } = new();
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class TaskItemDto
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string AssignedTo { get; set; } = "";
+        public DateTime? DueDate { get; set; }
+        public List<string> Labels { get; set; } = new();
+        public string MilestoneTitle { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string? GitHubIssueNumber { get; set; }
+        public string? GitHubIssueUrl { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class GitHubSyncResponseDto
+    {
+        public bool Success { get; set; }
+        public List<GitHubIssueDto> CreatedIssues { get; set; } = new();
+        public List<string> Errors { get; set; } = new();
+    }
+
+    public class GitHubIssueDto
+    {
+        public int Number { get; set; }
+        public string Title { get; set; } = "";
+        public string Body { get; set; } = "";
+        public string State { get; set; } = "";
+        public List<string> Labels { get; set; } = new();
+        public string? Assignee { get; set; }
+        public string? Milestone { get; set; }
+        public string HtmlUrl { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+}
