@@ -1,0 +1,39 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# NuGet packages
+*.nupkg
+# The packages folder can be ignored because of Package Restore
+**/[Pp]ackages/*
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Azure Functions localsettings file
+local.settings.json
+
+# Visual Studio files
+.vs/
+.vscode/
+
+# Logs
+*.log
+Logs/
+
+# Coverage reports
+**/coverage/
+**/TestResults/
+
+# Temporary files
+**/tmp/
+**/.tmp/
