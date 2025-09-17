@@ -1,0 +1,12 @@
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/bin/Debug/net8.0/ProjectPilot.Core.deps.json
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/bin/Debug/net8.0/ProjectPilot.Core.dll
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/bin/Debug/net8.0/ProjectPilot.Core.pdb
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.AssemblyInfoInputs.cache
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.AssemblyInfo.cs
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.csproj.CoreCompileInputs.cache
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.sourcelink.json
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.dll
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/refint/ProjectPilot.Core.dll
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ProjectPilot.Core.pdb
+/home/runner/work/ProjectPilot/ProjectPilot/src/ProjectPilot.Core/obj/Debug/net8.0/ref/ProjectPilot.Core.dll
